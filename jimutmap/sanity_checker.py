@@ -216,6 +216,7 @@ def sanity_check(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbo
 # connect to the temporary database that we shall use
 con = sqlite3.connect('temp_sanity.sqlite')
 cur = con.cursor()
+ACCESS_KEY = "1704837988_5451453327929905704_%2F_ow1SuEfsGeG0Y0JTulXXon3ru9qsKn1HjjSrFxxJGRo%3D"
 
 # create the object of class jimutmap's api
 sanity_obj = api(min_lat_deg = 10,
@@ -225,8 +226,8 @@ sanity_obj = api(min_lat_deg = 10,
                     zoom = 19,
                     verbose = False,
                     threads_ = 5, 
-                    container_dir = "myOutputFolder")
-
+                    container_dir = "myOutputFolder",
+                 ac_key=ACCESS_KEY)
 
 
 if __name__ == "__main__":

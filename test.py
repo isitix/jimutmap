@@ -8,13 +8,13 @@
 # ======================================================
 
 # Using map tiles for Kolkata, Baranagar my hometown: 22.645899,88.373889,19
-
 import os
 import glob
 import shutil
 from jimutmap import api, sanity_check, stitch_whole_tile
 
-
+ACCESS_KEY = "1704837988_5451453327929905704_%2F_ow1SuEfsGeG0Y0JTulXXon3ru9qsKn1HjjSrFxxJGRo%3D"
+CONTAINER_DIR = "british_fish_farms"
 download_obj = api(min_lat_deg = 22.64,
                       max_lat_deg = 22.65,
                       min_lon_deg = 88.37,
@@ -22,10 +22,10 @@ download_obj = api(min_lat_deg = 22.64,
                       zoom = 19,
                       verbose = False,
                       threads_ = 50, 
-                      container_dir = "myOutputFolder")
+                      container_dir = CONTAINER_DIR,
+                   ac_key=ACCESS_KEY)
 
 # If you don't have Chrome and can't take advantage of the auto access key fetch, set
-# a.ac_key = ACCESS_KEY_STRING
 # here
 
 # getMasks = False if you just need the tiles 
@@ -39,7 +39,8 @@ sanity_obj = api(min_lat_deg = 22.64,
                       zoom = 19,
                       verbose = False,
                       threads_ = 50, 
-                      container_dir = "myOutputFolder")
+                      container_dir = CONTAINER_DIR,
+                   ac_key=ACCESS_KEY)
 
 sanity_check(min_lat_deg = 22.64,
                 max_lat_deg = 22.65,
@@ -48,7 +49,8 @@ sanity_check(min_lat_deg = 22.64,
                 zoom = 19,
                 verbose = False,
                 threads_ = 50, 
-                container_dir = "myOutputFolder")
+                container_dir = CONTAINER_DIR
+             )
 
 print("Cleaning up... hold on")
 

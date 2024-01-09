@@ -186,7 +186,8 @@ class api:
         chromeDriverPath = chromedriver_autoinstaller.install(cwd= True)
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
-        driver = webdriver.Chrome(executable_path= chromeDriverPath, options=options)
+        options.add_argument("--remote-debugging-port=9222")
+        driver = webdriver.Chrome(options=options.ChromeOptions, executable_path= chromeDriverPath)
         driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
         keyContents = None
         loopStartTime = dt.datetime.now()
