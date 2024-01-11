@@ -260,7 +260,7 @@ class api:
         xTile, yTile = self.ret_xy_tiles(lat_deg, lon_deg)
         return [xTile, yTile]
 
-    def get_img(self, url_str:str, vNumber:int= 9042, getMask:bool= None, prefix:str= "", _rerun:bool= False):
+    def get_img(self, url_str:str, vNumber:int= 9651, getMask:bool= None, prefix:str= "", _rerun:bool= False):
         """
         Get images from the URL provided and save them
 
