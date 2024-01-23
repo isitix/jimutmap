@@ -24,8 +24,7 @@ import chromedriver_autoinstaller
 from .file_size import get_folder_size
 from multiprocessing.pool import ThreadPool
 from os.path import join, exists, normpath, relpath
-import access_key
-import covered_zone
+import config
 
 
 def generate_summary():
@@ -78,7 +77,7 @@ def update_sanity_db(folder_name):
 
 
 
-def shall_stop():
+def shall_stop(get_masks):
     # this function returns 1 if we need to stop, i.e., if all the entries are 1
     # which means all the required files are downloaded in the folder specified
     # even if one file is missing, we return 0
@@ -88,10 +87,12 @@ def shall_stop():
     get_sat_0s_val = cur.fetchall() #converts the cursor object to number
     total_number_of_sat0s = len(get_sat_0s_val)
     print("Total number of satellite images needed to be downloaded = ", total_number_of_sat0s)
-
-    get_road_0s = cur.execute(''' SELECT * FROM sanity WHERE road_tile = 0 ''')
-    get_road_0s_val = cur.fetchall() #converts the cursor object to number
-    total_number_of_road0s = len(get_road_0s_val)
+    if get_masks == True:
+        get_road_0s = cur.execute(''' SELECT * FROM sanity WHERE road_tile = 0 ''')
+        get_road_0s_val = cur.fetchall() #converts the cursor object to number
+        total_number_of_road0s = len(get_road_0s_val)
+    else:
+        total_number_of_road0s = 0
     print("Total number of satellite images needed to be downloaded = ", total_number_of_road0s)
 
     if total_number_of_sat0s == 0 and total_number_of_road0s == 0:
@@ -103,9 +104,9 @@ def check_downloading():
     # checks if the multiprocessing tool is still downloading the files or not
     # if there is a minute increase in byte size of the folder, we need to wait
     # till the multiprocessing thread finishes its execution
-    get_folder_size_ini = get_folder_size(covered_zone.CONTAINER_DIR)
+    get_folder_size_ini = get_folder_size(config.CONTAINER_DIR)
     time.sleep(15)
-    get_folder_size_final = get_folder_size(covered_zone.CONTAINER_DIR)
+    get_folder_size_final = get_folder_size(config.CONTAINER_DIR)
     diff = get_folder_size_final - get_folder_size_ini
     speed_download = diff/(15.0*1024*1024) # get the speed in MB
     if diff > 0:
@@ -155,7 +156,7 @@ def sanity_check(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbo
     create_sanity_db(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, latLonResolution=0.0005, verbose=False)  
     generate_summary()
 
-    while(shall_stop() == 0):
+    while(shall_stop(get_masks = config.GET_MASKS) == 0):
 
         sat_img_ids = get_sat_img_id()
         road_img_ids = get_road_img_id()
@@ -193,13 +194,13 @@ def sanity_check(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbo
 
         # print(URL_ALL)
         tp = ThreadPool(LOCKING_LIMIT)
-        tp.imap_unordered(lambda x: sanity_obj.get_img(x), URL_ALL) #pylint: disable= unnecessary-lambda #cSpell:words imap
+        tp.imap_unordered(lambda x: sanity_obj.get_img(x, vNumber = config.V_NUMBER, getMask = config.GET_MASKS), URL_ALL) #pylint: disable= unnecessary-lambda #cSpell:words imap
         tp.close()
 
         # while(tp is not None):
         #     print("Waiting for thread to finish downloading satellite tiles")
         #     time.sleep(5)
-        update_sanity_db(covered_zone.CONTAINER_DIR)
+        update_sanity_db(config.CONTAINER_DIR)
         # Save (commit) the changes
         con.commit()
 
@@ -219,24 +220,24 @@ con = sqlite3.connect('temp_sanity.sqlite')
 cur = con.cursor()
 
 # create the object of class jimutmap's api
-sanity_obj = api(min_lat_deg = covered_zone.MIN_LAT_DEG,
-                    max_lat_deg = covered_zone.MAX_LAT_DEG,
-                    min_lon_deg = covered_zone.MIN_LON_DEG,
-                    max_lon_deg = covered_zone.MAX_LON_DEG,
-                    zoom = covered_zone.ZOOM,
-                    verbose = covered_zone.VERBOSE,
-                    threads_ = covered_zone.THREADS_,
-                    container_dir = covered_zone.CONTAINER_DIR,
-                 ac_key=access_key.ACCESS_KEY)
+sanity_obj = api(min_lat_deg = config.MIN_LAT_DEG,
+                    max_lat_deg = config.MAX_LAT_DEG,
+                    min_lon_deg = config.MIN_LON_DEG,
+                    max_lon_deg = config.MAX_LON_DEG,
+                    zoom = config.ZOOM,
+                    verbose = config.VERBOSE,
+                    threads_ = config.THREADS_,
+                    container_dir = config.CONTAINER_DIR,
+                 ac_key = config.ACCESS_KEY)
 
 
 if __name__ == "__main__":
     # use main function for proper structuing of code
-    sanity_check(min_lat_deg = covered_zone.MIN_LAT_DEG,
-                    max_lat_deg = covered_zone.MAX_LAT_DEG,
-                    min_lon_deg = covered_zone.MIN_LON_DEG,
-                    max_lon_deg = covered_zone.MAX_LON_DEG,
-                    zoom = covered_zone.ZOOM,
-                    verbose = covered_zone.VERBOSE,
-                    threads_ = covered_zone.THREADS_,
-                    container_dir = covered_zone.CONTAINER_DIR)
+    sanity_check(min_lat_deg = config.MIN_LAT_DEG,
+                    max_lat_deg = config.MAX_LAT_DEG,
+                    min_lon_deg = config.MIN_LON_DEG,
+                    max_lon_deg = config.MAX_LON_DEG,
+                    zoom = config.ZOOM,
+                    verbose = config.VERBOSE,
+                    threads_ = config.THREADS_,
+                    container_dir = config.CONTAINER_DIR)
