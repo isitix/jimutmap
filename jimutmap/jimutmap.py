@@ -178,7 +178,6 @@ class api:
         from the data-map-printing-background attribute of Apple Maps.
         """
         chromedriver_autoinstaller.install(cwd= True)
-        ACCESS_KEY_REGEXP_PATTERN = r'&accessKey=([^\s&]+)'
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
         options.add_argument("--remote-debugging-port=9222")
@@ -190,7 +189,7 @@ class api:
             time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
             baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
             mapData = baseMap.get_attribute("data-map-printing-background")
-            match = re.search(ACCESS_KEY_REGEXP_PATTERN, mapData)
+            match = re.search(r'&accessKey=([^\s&]+)', mapData)
             if match is not None:
                 keyContents = match.group(1)
                 break

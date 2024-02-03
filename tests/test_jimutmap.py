@@ -1,3 +1,4 @@
+import re
 import unittest
 from jimutmap import jimutmap
 
@@ -17,7 +18,7 @@ class TestGetAPIKey(unittest.TestCase):
         key = self.api_object._get_api_key()
         self.assertIsInstance(key, str)
         self.assertGreater(len(key), 0)
-
+        self.assertIsNotNone(re.match(r'[^\s&]+', key))
     def test_get_api_key_timeout_error(self):
         """
         Test _get_api_key function when it raises a TimeoutError
