@@ -19,3 +19,9 @@ A
 config_full_uk.py,a/3/a37601cdc41c0e9a83f88fc4b535a54aca1a3acb
 I
 jimutmap/tiles_sticher.py,2/4/243771c27f02d76e590830b3a34c14a59a4d385c
+F
+tests/test_jimutmap.py,d/f/df14d4623b07e32fab44a09d474a64845cbcdd68
+7
+TODO.md,b/5/b5b096f958319b1c7782c800c78c4c358a58d709
+C
+jimutmap/.gitignore,5/1/51d232134b9800d4e374ca2cdfed734696f51c4c

@@ -1,4 +1,4 @@
-
+import re
 # ========================================================
 # This program fetches tiles from satellites.pro for free.
 # OPEN SOURCED UNDER GPL-V3.0.
@@ -23,6 +23,7 @@ from selenium import webdriver
 import chromedriver_autoinstaller
 from multiprocessing.pool import ThreadPool
 from os.path import join, exists, normpath, relpath
+from selenium.webdriver.common.by import By
 
 
 
@@ -80,16 +81,13 @@ class api:
             It will be created if it does not exist.
         """
         global LOCKING_LIMIT
-        self._acKey = None
-        self._containerDir = ""
-        if ac_key is None:
-            self._getAPIKey()
-        else:
-            self.ac_key = ac_key
+        self._container_dir = container_dir
+        self.ac_key = ac_key
         self.set_bounds(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg)
         self.zoom = zoom
         self.verbose = bool(verbose)
-        
+        self._get_masks = True
+
         # To get the maximum number of threads
         MAX_CORES = multiprocessing.cpu_count()
         if threads_> MAX_CORES:
@@ -100,8 +98,6 @@ class api:
 
         if self.verbose:
             print(self.ac_key,self.min_lat_deg,self.max_lat_deg,self.min_lon_deg,self.max_lon_deg,self.zoom,self.verbose,LOCKING_LIMIT)
-        self._getMasks = True
-        self.container_dir = container_dir
         print("Initializing jimutmap ... Please wait...")
         
 
@@ -110,7 +106,7 @@ class api:
         """
         Get the output directory
         """
-        return self._containerDir
+        return self._container_dir
 
     @container_dir.setter
     def container_dir(self, newDir:str):
@@ -122,9 +118,9 @@ class api:
                         print(f"Creating target directory `{newDir}`")
                     os.makedirs(newDir)
                 assert exists(newDir)
-                self._containerDir = newDir
+                self._container_dir = newDir
         except Exception: #pylint: disable= broad-except
-            self._containerDir = ""
+            self._container_dir = ""
 
 
     def set_bounds(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float):
@@ -176,34 +172,28 @@ class api:
             if newACKey is not None:
                 raise ValueError("Invalid AccessKey string")
 
-    def _getAPIKey(self, timeout:float= 60) -> str:
+    def _get_api_key(self, timeout:float= 60) -> str:
         """
         Use a headless Chrome/Chromium instance to scrape the access key
         from the data-map-printing-background attribute of Apple Maps.
         """
-        SAMPLE_KEY = r"1614125879_3642792122889215637_%2F_RwvhYZM5fKknqTdkXih2Wcu3s2f3Xea126uoIuDzUIY%3D"
-        KEY_START = r"&accessKey="
-        chromeDriverPath = chromedriver_autoinstaller.install(cwd= True)
+        chromedriver_autoinstaller.install(cwd= True)
+        ACCESS_KEY_REGEXP_PATTERN = r'&accessKey=([^\s&]+)'
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
         options.add_argument("--remote-debugging-port=9222")
-        driver = webdriver.Chrome(options=options.ChromeOptions, executable_path= chromeDriverPath)
+        driver = webdriver.Chrome(options=options)
         driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
         keyContents = None
         loopStartTime = dt.datetime.now()
-        while keyContents is None and (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
-            time.sleep(2.5)
-            try:
-                baseMap = driver.find_element_by_css_selector("#map-canvas .leaflet-mapkit-mutant")
-                mapData = baseMap.get_attribute("data-map-printing-background")
-                accessKeyStart = mapData.find(KEY_START)
-                accessKeyEnd = accessKeyStart + int(1.5 * len(SAMPLE_KEY))
-                searchForKey = mapData[accessKeyStart:accessKeyEnd]
-                keyContents = searchForKey[len(KEY_START):]
-                keyEnd = keyContents.find("&")
-                keyContents = keyContents[:keyEnd]
-            except Exception: #pylint: disable= broad-except
-                keyContents = None
+        while (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
+            time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
+            baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
+            mapData = baseMap.get_attribute("data-map-printing-background")
+            match = re.search(ACCESS_KEY_REGEXP_PATTERN, mapData)
+            if match is not None:
+                keyContents = match.group(1)
+                break
         if keyContents is None:
             raise TimeoutError(f"Unable to automatically fetch API key in {timeout}s")
         self.ac_key = keyContents
@@ -274,17 +264,17 @@ class api:
             which was no longer working. Moved to a kwarg.
 
         getMask:bool (default= None)
-            By default, uses the internal self._getMasks variable set
+            By default, uses the internal self._get_masks variable set
             on instantiation. If set to a boolean value, overrides the
-            current self._getMasks value
+            current self._get_masks value
 
         _rerun:bool (default= False)
             Internal. Tracks retry status.
         """
         global headers, LOCK_VAR, UNLOCK_VAR, LOCKING_LIMIT
         if isinstance(getMask, bool):
-            self._getMasks = getMask
-        getMask = self._getMasks
+            self._get_masks = getMask
+        getMask = self._get_masks
         if self.verbose:
             print(url_str)
         UNLOCK_VAR = UNLOCK_VAR + 1
@@ -314,7 +304,7 @@ class api:
                         if _rerun:
                             return False
                         # Refresh the API key
-                        self._getAPIKey()
+                        self._get_api_key()
                         return self.get_img(url_str, vNumber, getMask, _rerun= True)
                 except Exception: #pylint: disable= broad-except
                     pass
@@ -382,7 +372,7 @@ class api:
 
         Also accepts kwargs for `get_img`.
         """
-        self._getMasks = bool(getMasks)
+        self._get_masks = bool(getMasks)
         min_lat, max_lat = self._getLatBounds()
         min_lon, max_lon = self._getLonBounds()
         if (max_lat - min_lat <= latLonResolution) or (max_lon - min_lon <= latLonResolution):

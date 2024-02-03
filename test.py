@@ -12,7 +12,6 @@ import os
 import glob
 import shutil
 from jimutmap import api, sanity_check, stitch_whole_tile
-import access_key
 import config
 
 download_obj = api(min_lat_deg = config.MIN_LAT_DEG,
