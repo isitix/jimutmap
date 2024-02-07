@@ -54,7 +54,7 @@ class api:
     """
     Pull tiles from Apple Maps
     """
-    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, ac_key:str= None, verbose:bool= False, threads_:int= 4, container_dir:str= ""):
+    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, ac_key:str= '', verbose:bool= False, threads_:int= 4, container_dir:str= ""):
         """
         Parameters
         -------------------------------------
@@ -81,12 +81,13 @@ class api:
             It will be created if it does not exist.
         """
         global LOCKING_LIMIT
-        self._container_dir = container_dir
+        # first value to set because used elsewhere in the code
+        self.verbose = bool(verbose)
         self.ac_key = ac_key
         self.set_bounds(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg)
         self.zoom = zoom
-        self.verbose = bool(verbose)
         self._get_masks = True
+        self.container_dir = container_dir
 
         # To get the maximum number of threads
         MAX_CORES = multiprocessing.cpu_count()
@@ -114,9 +115,9 @@ class api:
             if isinstance(newDir, str) and len(newDir) > 0:
                 newDir = normpath(relpath(newDir))
                 if not exists(newDir):
+                    os.makedirs(newDir)
                     if self.verbose:
                         print(f"Creating target directory `{newDir}`")
-                    os.makedirs(newDir)
                 assert exists(newDir)
                 self._container_dir = newDir
         except Exception: #pylint: disable= broad-except
@@ -161,16 +162,10 @@ class api:
 
     @ac_key.setter
     def ac_key(self, newACKey:str):
-        try:
-            if not newACKey.startswith("&"):
-                if not newACKey.lower().startswith("a"):
-                    newACKey = f"accessKey={newACKey}"
-                newACKey = f"&{newACKey}"
+        if newACKey == '' or newACKey is None:
+            self._get_api_key()
+        else:
             self._acKey = newACKey
-        except (AttributeError, TypeError):
-            self._acKey = None
-            if newACKey is not None:
-                raise ValueError("Invalid AccessKey string")
 
     def _get_api_key(self, timeout:float= 60) -> str:
         """
@@ -195,7 +190,7 @@ class api:
                 break
         if keyContents is None:
             raise TimeoutError(f"Unable to automatically fetch API key in {timeout}s")
-        self.ac_key = keyContents
+        self._acKey = keyContents
         return keyContents
 
 
@@ -352,7 +347,7 @@ class api:
                             os.remove(file_name_road)
                             if self.verbose:
                                 print(file_name_road,"NOT PNG")
-                    except Exception as e: #pylint: disable= broad-except
+                    except Exception as e:
                         if self.verbose:
                             print(e)
 
