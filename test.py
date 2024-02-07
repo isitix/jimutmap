@@ -14,19 +14,6 @@ import shutil
 from jimutmap import api, sanity_check, stitch_whole_tile
 import config
 
-download_obj = api(min_lat_deg = config.MIN_LAT_DEG,
-                      max_lat_deg = config.MAX_LAT_DEG,
-                      min_lon_deg = config.MIN_LON_DEG,
-                      max_lon_deg = config.MAX_LON_DEG,
-                      zoom = config.ZOOM,
-                      verbose = config.VERBOSE,
-                      threads_ = config.THREADS_,
-                      container_dir = config.CONTAINER_DIR,
-                   ac_key = config.ACCESS_KEY)
-
-# If you don't have Chrome and can't take advantage of the auto access key fetch, set
-# here
-
 # create the object of class jimutmap's api
 sanity_check(min_lat_deg = config.MIN_LAT_DEG,
                 max_lat_deg = config.MAX_LAT_DEG,
@@ -38,6 +25,4 @@ sanity_check(min_lat_deg = config.MIN_LAT_DEG,
                 container_dir = config.CONTAINER_DIR
              )
 
-print("Cleaning up... hold on")
 
-sqlite_temp_files = glob.glob('*.sqlite*')
