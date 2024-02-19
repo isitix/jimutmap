@@ -11,7 +11,7 @@ import os
 from jimutmap import SanityChecker
 import config
 
-min_lat = config.MIN_LAT_DEG
+min_lon = config.MIN_LON_DEG
 step = config.STEP
 while min_lon < config.MAX_LON_DEG:
     min_lat = config.MIN_LAT_DEG
@@ -27,10 +27,10 @@ while min_lon < config.MAX_LON_DEG:
                                        container_dir=container_dir
                                        )
         sanity_checker.sanity_check()
-        # create an empty file to mark the dir as done
-        with open(os.path.join(container_dir, 'done.txt')):
-            pass
         min_lat = min_lat + config.STEP
+    # create an empty file to mark the dir as done
+    with open(os.path.join(container_dir, 'done.txt')):
+        pass
     min_lon = min_lon + config.STEP
 
 
