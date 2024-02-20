@@ -24,7 +24,7 @@ import chromedriver_autoinstaller
 from multiprocessing.pool import ThreadPool
 from os.path import join, exists, normpath, relpath
 from selenium.webdriver.common.by import By
-
+from typing import List
 
 
 
@@ -245,15 +245,12 @@ class api:
         xTile, yTile = self.ret_xy_tiles(lat_deg, lon_deg)
         return [xTile, yTile]
 
-    def get_img(self, url_str:str, vNumber:int= 9651, getMask:bool= None, prefix:str= "", _rerun:bool= False):
+    def get_img(self, tile:List[str], vNumber:int= 9651, getMask:bool= None, prefix:str= "", _rerun:bool= False):
         """
         Get images from the URL provided and save them
 
         Parameters
         --------------------
-        url_str:str
-            The URL to read
-
         vNumber:int (default= 9042)
             The original version of this number was hardcoded as 7072,
             which was no longer working. Moved to a kwarg.
@@ -271,7 +268,7 @@ class api:
             self._get_masks = getMask
         getMask = self._get_masks
         if self.verbose:
-            print(url_str)
+            print(tile)
         UNLOCK_VAR = UNLOCK_VAR + 1
         LOCK_VAR = 1
         if self.verbose:
@@ -281,8 +278,8 @@ class api:
             UNLOCK_VAR = 0
             if self.verbose:
                 print("-------- UNLOCKING")
-        xTile = url_str[0]
-        yTile = url_str[1]
+        xTile = tile[0]
+        yTile = tile[1]
         file_name = join(self.container_dir, f"{prefix}{xTile}_{yTile}.jpg")
         try:
             assert exists(file_name)
@@ -300,7 +297,7 @@ class api:
                             return False
                         # Refresh the API key
                         self._get_api_key()
-                        return self.get_img(url_str, vNumber, getMask, _rerun= True)
+                        return self.get_img(tile, vNumber, getMask, _rerun=True)
                 except Exception: #pylint: disable= broad-except
                     pass
                 with open(file_name, 'wb') as fh:
