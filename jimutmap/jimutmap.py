@@ -184,6 +184,7 @@ class api:
             time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
             baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
             mapData = baseMap.get_attribute("data-map-printing-background")
+            mapData = str(mapData)
             match = re.search(r'&accessKey=([^\s&]+)', mapData)
             if match is not None:
                 keyContents = match.group(1)
@@ -289,7 +290,7 @@ class api:
             try:
                 # get the image tile and the mask tile for the same
                 # sample sat tile: https://sat-cdn2.apple-mapkit.com/tile?style=7&size=1&scale=1&z=19&x=390843&y=228270&v=9262&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
-                req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={vNumber}{self.ac_key}"
+                req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={vNumber}&accessKey={self.ac_key}"
                 if self.verbose:
                     print(req_url)
                 r = requests.get(req_url, headers= headers)
@@ -330,7 +331,7 @@ class api:
                     # sample road tile 1: https://cdn3.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=390842&y=228268&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
                     # sample road tile 2: https://cdn4.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=296223&y=176608&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
                     
-                    req_url = f"https://cdn{cdnLevel}.apple-mapkit.com/ti/tile?country=US&region=US&style=46&size=1&x={xTile}&y={yTile}&z={self.zoom}&scale=1&lang=en&v={env_key}4&poi=1{self.ac_key}&emphasis=standard&tint=light"
+                    req_url = f"https://cdn{cdnLevel}.apple-mapkit.com/ti/tile?country=US&region=US&style=46&size=1&x={xTile}&y={yTile}&z={self.zoom}&scale=1&lang=en&v={env_key}4&poi=1&accessKey={self.ac_key}&emphasis=standard&tint=light"
                     try:
                         # image and mask retrieval
                         # For the roads data

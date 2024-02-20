@@ -1,5 +1,8 @@
 # numbers are for selenium drivers, we should ignore them
 [0-9]*
+*.jpg
+*.jpeg
+.idea/
 *.png
 myOutputFolder_zoom19
 *.sqlite

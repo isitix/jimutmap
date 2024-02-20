@@ -21,17 +21,11 @@ class SanityChecker:
     def __init__(self, min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbose, threads_, container_dir):
         self.con = sqlite3.connect('temp_sanity.sqlite')
         self.cur = self.con.cursor()
-        self.min_lat_deg = min_lat_deg
-        self.max_lat_deg = max_lat_deg
-        self.min_lon_deg = min_lon_deg
-        self.max_lon_deg = max_lon_deg
-        self.zoom = zoom
-        self.verbose = verbose
         self.threads_ = threads_
         self.container_dir = container_dir
         # create the object of class jimutmap's api
         self.sanity_obj = api(min_lat_deg=min_lat_deg, max_lat_deg=max_lat_deg, min_lon_deg=min_lon_deg,
-                              max_lon_deg=max_lon_deg, zoom=self.zoom, verbose=self.verbose,
+                              max_lon_deg=max_lon_deg, zoom=zoom, verbose=verbose,
                               threads_=self.threads_, container_dir=self.container_dir)
     def generate_summary(self):
         # Create an approximate analysis of the space required
@@ -45,8 +39,8 @@ class SanityChecker:
 
     def create_sanity_db(self, latLonResolution=0.0005):
         # To save all the expected file names to be downloaded
-        for i in tqdm(np.arange(self.min_lat_deg, self.max_lat_deg, latLonResolution)):
-            for j in np.arange(self.min_lon_deg, self.max_lon_deg, latLonResolution):
+        for i in tqdm(np.arange(self.sanity_obj.min_lat_deg, self.sanity_obj.max_lat_deg, latLonResolution)):
+            for j in np.arange(self.sanity_obj.min_lon_deg, self.sanity_obj.max_lon_deg, latLonResolution):
                 xTile, yTile = self.sanity_obj.ret_xy_tiles(i,j)
                 # print(xTile," ",yTile)
                 # create the primary key for tracking values
@@ -164,7 +158,7 @@ class SanityChecker:
             # To get the maximum number of threads
             MAX_CORES = multiprocessing.cpu_count()
             if self.threads_> MAX_CORES:
-                print("Sorry, {} -- threads unavailable, using maximum CPU threads : {}".format(threads_,MAX_CORES))
+                print("Sorry, {} -- threads unavailable, using maximum CPU threads : {}".format(self.threads_,MAX_CORES))
                 self.threads_ = MAX_CORES
 
             LOCKING_LIMIT = self.threads_
