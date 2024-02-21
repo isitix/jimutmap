@@ -245,7 +245,7 @@ class api:
         xTile, yTile = self.ret_xy_tiles(lat_deg, lon_deg)
         return [xTile, yTile]
 
-    def get_img(self, tile:List[str], vNumber:int= 9651, getMask:bool= None, prefix:str= "", _rerun:bool= False):
+    def get_img(self, tile:List[str], vNumber:int= 9651, getMask:bool= None, prefix:str= "", retry:int= 1):
         """
         Get images from the URL provided and save them
 
@@ -260,7 +260,7 @@ class api:
             on instantiation. If set to a boolean value, overrides the
             current self._get_masks value
 
-        _rerun:bool (default= False)
+        retry:bool (default= False)
             Internal. Tracks retry status.
         """
         global headers, LOCK_VAR, UNLOCK_VAR, LOCKING_LIMIT
@@ -281,43 +281,32 @@ class api:
         xTile = tile[0]
         yTile = tile[1]
         file_name = join(self.container_dir, f"{prefix}{xTile}_{yTile}.jpg")
-        try:
-            assert exists(file_name)
-        except AssertionError:
+        attempt = 0
+        while attempt < retry and not exists(file_name):
+            attempt = attempt + 1
             try:
-                # get the image tile and the mask tile for the same
-                # sample sat tile: https://sat-cdn2.apple-mapkit.com/tile?style=7&size=1&scale=1&z=19&x=390843&y=228270&v=9262&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
-                req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={vNumber}&accessKey={self.ac_key}"
+                req_url = self.get_req_img_url(vNumber, xTile, yTile)
                 if self.verbose:
-                    print(req_url)
-                r = requests.get(req_url, headers= headers)
-                try:
-                    if "access denied" in str(r.content).lower():
-                        if _rerun:
-                            return False
-                        # Refresh the API key
-                        self._get_api_key()
-                        return self.get_img(tile, vNumber, getMask, _rerun=True)
-                except Exception: #pylint: disable= broad-except
-                    pass
+                    print(f'Downloading file {file_name} attempt #{attempt}')
+                r = requests.get(req_url, headers=headers)
+                content = r.content
+                if self.is_access_denied(content):
+                    if self.verbose:
+                        print('Access denied, refreshing api key')
+                    self._get_api_key()
+                    continue
                 with open(file_name, 'wb') as fh:
                     fh.write(r.content)
-                if imghdr.what(file_name) == 'jpeg':
-                    if self.verbose:
-                        print(file_name,"JPEG")
-                else:
+                if imghdr.what(file_name) != 'jpeg':
                     os.remove(file_name)
-                    if self.verbose:
-                        print(file_name, "NOT JPEG")
-            except Exception as e: #pylint: disable= broad-except
+            except Exception as e:
                 if self.verbose:
                     print(e)
         if getMask:
             ext = file_name.split('.').pop()
             file_name_road = file_name[:-len(ext)-1]+"_road.png"
-            try:
-                assert exists(file_name_road)
-            except AssertionError:
+            # BLOCK
+            if not exists(file_name_road):
                 for cdnLevel in range(1, 5):
                     # change the 2nd auth according to the datetime for downloading the roads masks
                     today_date = str(dt.date.today())
@@ -325,15 +314,10 @@ class api:
                     month = today_date[5:7]
                     day = today_date[8:10]
                     env_key = str(year)+str(month)+str(day)
-                    # sample road tile 1: https://cdn3.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=390842&y=228268&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
-                    # sample road tile 2: https://cdn4.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=296223&y=176608&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
-                    
-                    req_url = f"https://cdn{cdnLevel}.apple-mapkit.com/ti/tile?country=US&region=US&style=46&size=1&x={xTile}&y={yTile}&z={self.zoom}&scale=1&lang=en&v={env_key}4&poi=1&accessKey={self.ac_key}&emphasis=standard&tint=light"
+                    req_url = self.get_req_road_url(cdnLevel, env_key, xTile, yTile)
                     try:
                         # image and mask retrieval
                         # For the roads data
-                        if self.verbose:
-                            print(req_url)
                         r = requests.get(req_url, headers= headers)
                         with open(file_name_road, 'wb') as fh:
                             fh.write(r.content)
@@ -348,6 +332,24 @@ class api:
                     except Exception as e:
                         if self.verbose:
                             print(e)
+
+    def get_req_road_url(self, cdnLevel, env_key, xTile, yTile):
+        # sample road tile 1: https://cdn3.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=390842&y=228268&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
+        # sample road tile 2: https://cdn4.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=296223&y=176608&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
+        req_url = f"https://cdn{cdnLevel}.apple-mapkit.com/ti/tile?country=US&region=US&style=46&size=1&x={xTile}&y={yTile}&z={self.zoom}&scale=1&lang=en&v={env_key}4&poi=1&accessKey={self.ac_key}&emphasis=standard&tint=light"
+        if self.verbose:
+            print(req_url)
+        return req_url
+
+    def get_req_img_url(self, vNumber, xTile, yTile):
+        # sample sat tile: https://sat-cdn2.apple-mapkit.com/tile?style=7&size=1&scale=1&z=19&x=390843&y=228270&v=9262&accesskey=1649243787_2102081627305478489_%2f_hiz9ljszkmj6ne7y%2bimxs9vfqbxfjlbclzr7yqyftse%3d&emphasis=standard&tint=light
+        req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={vNumber}&accessKey={self.ac_key}"
+        if self.verbose:
+            print(req_url)
+        return req_url
+    def is_access_denied(self, content):
+        body = str(content).lower()
+        return body.find("access denied") != -1
 
     def download(self, getMasks:bool= False, latLonResolution:float= 0.0005, **kwargs):
         """
