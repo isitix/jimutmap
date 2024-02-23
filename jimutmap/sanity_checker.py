@@ -97,7 +97,7 @@ class SanityChecker:
         # checks if the multiprocessing tool is still downloading the files or not
         # if there is a minute increase in byte size of the folder, we need to wait
         # till the multiprocessing thread finishes its execution
-        get_folder_size_ini = get_folder_size(config.CONTAINER_DIR)
+        get_folder_size_ini = get_folder_size(self.sanity_obj.container_dir)
         time.sleep(15)
         get_folder_size_final = get_folder_size(config.CONTAINER_DIR)
         diff = get_folder_size_final - get_folder_size_ini

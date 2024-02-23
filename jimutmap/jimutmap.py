@@ -303,29 +303,28 @@ class api:
                 if self.verbose:
                     print(e)
         if getMask:
-            ext = file_name.split('.').pop()
-            file_name_road = file_name[:-len(ext)-1]+"_road.png"
-            # BLOCK
-            if not exists(file_name_road):
-                for cdnLevel in range(1, 5):
-                    # change the 2nd auth according to the datetime for downloading the roads masks
+            for cdn_level in range(1, 5):
+                file_name_road = join(self.container_dir, f"{prefix}{xTile}_{yTile}_road{cdn_level}.png")
+                attempt = 0
+                while attempt < retry and not exists(file_name_road):
+                    attempt = attempt + 1
                     today_date = str(dt.date.today())
                     year = today_date[0:4]
                     month = today_date[5:7]
                     day = today_date[8:10]
                     env_key = str(year)+str(month)+str(day)
-                    req_url = self.get_req_road_url(cdnLevel, env_key, xTile, yTile)
+                    req_url = self.get_req_road_url(cdn_level, env_key, xTile, yTile)
                     try:
-                        # image and mask retrieval
-                        # For the roads data
-                        r = requests.get(req_url, headers= headers)
+                        r = requests.get(req_url, headers=headers)
+                        if self.verbose:
+                            print(f'Downloading file {file_name_road} attempt #{attempt}')
+                        content = r.content
+                        if self.is_access_denied(content):
+                            self._get_api_key()
+                            continue
                         with open(file_name_road, 'wb') as fh:
                             fh.write(r.content)
-                        if imghdr.what(file_name_road) == 'png':
-                            if self.verbose:
-                                print(file_name_road,"PNG")
-                            break # Success
-                        else:
+                        if imghdr.what(file_name_road) != 'png':
                             os.remove(file_name_road)
                             if self.verbose:
                                 print(file_name_road,"NOT PNG")
