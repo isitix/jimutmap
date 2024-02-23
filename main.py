@@ -24,14 +24,12 @@ while min_lon < config.MAX_LON_DEG:
                                        zoom=config.ZOOM,
                                        verbose=config.VERBOSE,
                                        threads_=config.THREADS_,
-                                       container_dir=container_dir
+                                       container_dir=container_dir,
+                                       v_number=config.V_NUMBER
                                        )
         sanity_checker.sanity_check()
+        # create an empty file to mark the dir as done
+        with open(os.path.join(container_dir, 'done.txt')):
+            pass
         min_lat = min_lat + config.STEP
-    # create an empty file to mark the dir as done
-    with open(os.path.join(container_dir, 'done.txt')):
-        pass
     min_lon = min_lon + config.STEP
-
-
-

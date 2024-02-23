@@ -54,7 +54,7 @@ class api:
     """
     Pull tiles from Apple Maps
     """
-    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, ac_key:str= '', verbose:bool= False, threads_:int= 4, container_dir:str= ""):
+    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, ac_key:str= '', verbose:bool= False, threads_:int= 4, container_dir:str= "", get_mask:bool= False, v_number:int=0):
         """
         Parameters
         -------------------------------------
@@ -86,8 +86,9 @@ class api:
         self.ac_key = ac_key
         self.set_bounds(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg)
         self.zoom = zoom
-        self._get_masks = True
+        self.get_masks = get_mask
         self.container_dir = container_dir
+        self.v_number = v_number
 
         # To get the maximum number of threads
         MAX_CORES = multiprocessing.cpu_count()
@@ -245,7 +246,7 @@ class api:
         xTile, yTile = self.ret_xy_tiles(lat_deg, lon_deg)
         return [xTile, yTile]
 
-    def get_img(self, tile:List[str], vNumber:int= 9651, getMask:bool= None, prefix:str= "", retry:int= 1):
+    def get_img(self, tile:List[str], prefix:str= "", retry:int= 1):
         """
         Get images from the URL provided and save them
 
@@ -255,18 +256,10 @@ class api:
             The original version of this number was hardcoded as 7072,
             which was no longer working. Moved to a kwarg.
 
-        getMask:bool (default= None)
-            By default, uses the internal self._get_masks variable set
-            on instantiation. If set to a boolean value, overrides the
-            current self._get_masks value
-
         retry:bool (default= False)
             Internal. Tracks retry status.
         """
         global headers, LOCK_VAR, UNLOCK_VAR, LOCKING_LIMIT
-        if isinstance(getMask, bool):
-            self._get_masks = getMask
-        getMask = self._get_masks
         if self.verbose:
             print(tile)
         UNLOCK_VAR = UNLOCK_VAR + 1
@@ -285,7 +278,7 @@ class api:
         while attempt < retry and not exists(file_name):
             attempt = attempt + 1
             try:
-                req_url = self.get_req_img_url(vNumber, xTile, yTile)
+                req_url = self.get_req_img_url(xTile, yTile)
                 if self.verbose:
                     print(f'Downloading file {file_name} attempt #{attempt}')
                 r = requests.get(req_url, headers=headers)
@@ -302,7 +295,7 @@ class api:
             except Exception as e:
                 if self.verbose:
                     print(e)
-        if getMask:
+        if self.get_masks:
             for cdn_level in range(1, 5):
                 file_name_road = join(self.container_dir, f"{prefix}{xTile}_{yTile}_road{cdn_level}.png")
                 attempt = 0
@@ -340,9 +333,9 @@ class api:
             print(req_url)
         return req_url
 
-    def get_req_img_url(self, vNumber, xTile, yTile):
+    def get_req_img_url(self, xTile, yTile):
         # sample sat tile: https://sat-cdn2.apple-mapkit.com/tile?style=7&size=1&scale=1&z=19&x=390843&y=228270&v=9262&accesskey=1649243787_2102081627305478489_%2f_hiz9ljszkmj6ne7y%2bimxs9vfqbxfjlbclzr7yqyftse%3d&emphasis=standard&tint=light
-        req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={vNumber}&accessKey={self.ac_key}"
+        req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={self.v_number}&accessKey={self.ac_key}"
         if self.verbose:
             print(req_url)
         return req_url
@@ -350,7 +343,7 @@ class api:
         body = str(content).lower()
         return body.find("access denied") != -1
 
-    def download(self, getMasks:bool= False, latLonResolution:float= 0.0005, **kwargs):
+    def download(self, latLonResolution:float= 0.0005, **kwargs):
         """
         Downloads the tiles as initialized.
 
@@ -365,7 +358,6 @@ class api:
 
         Also accepts kwargs for `get_img`.
         """
-        self._get_masks = bool(getMasks)
         min_lat, max_lat = self._getLatBounds()
         min_lon, max_lon = self._getLonBounds()
         if (max_lat - min_lat <= latLonResolution) or (max_lon - min_lon <= latLonResolution):

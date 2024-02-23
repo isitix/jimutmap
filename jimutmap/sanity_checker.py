@@ -14,11 +14,10 @@ import multiprocessing
 from jimutmap import api
 from .file_size import get_folder_size
 from multiprocessing.pool import ThreadPool
-import config
 
 
 class SanityChecker:
-    def __init__(self, min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbose, threads_, container_dir):
+    def __init__(self, min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbose, threads_, container_dir, v_number):
         self.con = sqlite3.connect('temp_sanity.sqlite')
         self.cur = self.con.cursor()
         self.threads_ = threads_
@@ -26,7 +25,7 @@ class SanityChecker:
         # create the object of class jimutmap's api
         self.sanity_obj = api(min_lat_deg=min_lat_deg, max_lat_deg=max_lat_deg, min_lon_deg=min_lon_deg,
                               max_lon_deg=max_lon_deg, zoom=zoom, verbose=verbose,
-                              threads_=self.threads_, container_dir=self.container_dir)
+                              threads_=self.threads_, container_dir=self.container_dir, v_number=v_number)
     def generate_summary(self):
         # Create an approximate analysis of the space required
         self.cur.execute(''' SELECT * FROM sanity ''')
@@ -99,7 +98,7 @@ class SanityChecker:
         # till the multiprocessing thread finishes its execution
         get_folder_size_ini = get_folder_size(self.sanity_obj.container_dir)
         time.sleep(15)
-        get_folder_size_final = get_folder_size(config.CONTAINER_DIR)
+        get_folder_size_final = get_folder_size(self.sanity_obj.container_dir)
         diff = get_folder_size_final - get_folder_size_ini
         speed_download = diff/(15.0*1024*1024) # get the speed in MB
         if diff > 0:
@@ -140,7 +139,7 @@ class SanityChecker:
         self.create_sanity_db(latLonResolution=0.0005)
         self.generate_summary()
 
-        while(self.shall_stop(get_masks = config.GET_MASKS) == 0):
+        while(self.shall_stop(get_masks = self.sanity_obj.get_masks) == 0):
 
             sat_img_ids = self.get_sat_img_id()
 
@@ -173,11 +172,10 @@ class SanityChecker:
 
             # print(URL_ALL)
             tp = ThreadPool(LOCKING_LIMIT)
-            tp.imap_unordered(lambda x: self.sanity_obj.get_img(x, vNumber = config.V_NUMBER,
-                                                                getMask = config.GET_MASKS), URL_ALL) #pylint: disable= unnecessary-lambda #cSpell:words imap
+            tp.imap_unordered(lambda x: self.sanity_obj.get_img(x), URL_ALL) #pylint: disable= unnecessary-lambda #cSpell:words imap
             tp.close()
 
-            self.update_sanity_db(config.CONTAINER_DIR)
+            self.update_sanity_db(self.sanity_obj.container_dir)
             self.con.commit()
 
             # continue the loop till there is no file left to download
