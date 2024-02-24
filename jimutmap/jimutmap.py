@@ -16,6 +16,8 @@ import imghdr
 import requests
 import numpy as np
 import datetime as dt
+
+from selenium.webdriver.support.wait import WebDriverWait
 from tqdm import tqdm
 import multiprocessing
 from typing import Tuple
@@ -40,6 +42,18 @@ headers = {
 }
 
 
+class WebDriverContextManager:
+    def __init__(self, options):
+        chromedriver_autoinstaller.install(cwd=True)
+        self.options = options
+
+    def __enter__(self):
+        self.driver = webdriver.Chrome(options=self.options)
+        return self.driver
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.driver.quit()
+
 
 
 
@@ -56,32 +70,16 @@ class api:
     """
     def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, ac_key:str= '', verbose:bool= False, threads_:int= 4, container_dir:str= "", get_mask:bool= False, v_number:int=0):
         """
-        Parameters
-        -------------------------------------
-
-        min_lat_deg: float
-        max_lat_deg: float
-        min_lon_deg: float
-        max_lon_deg: float
-
-        zoom: int
-            Zoom level. Between  1 and 20.
+        Zoom level. Between  1 and 20.
 
         ac_key:str (default= None)
-            Access key to Apple Maps. If not provided, will use a headless Chrome instance to fetch a session key.
-
-        verbose:bool (default= False)
-            Helpful debugging output
-
-        threads_: int (default= 4)
-            Thread limit for process. Max depending on CPU cores
-
+        Access key to Apple Maps. If not provided, will use a headless Chrome instance to fetch a session key.
         container_dir:str (default= "")
             When downloading images, place them in this directory.
             It will be created if it does not exist.
         """
         global LOCKING_LIMIT
-        # first value to set because used elsewhere in the code
+        # verbose is the first value to set because used elsewhere in the code
         self.verbose = bool(verbose)
         self.ac_key = ac_key
         self.set_bounds(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg)
@@ -90,7 +88,6 @@ class api:
         self.container_dir = container_dir
         self.v_number = v_number
 
-        # To get the maximum number of threads
         MAX_CORES = multiprocessing.cpu_count()
         if threads_> MAX_CORES:
             print("Sorry, {} -- threads unavailable, using maximum CPU threads : {}".format(threads_,MAX_CORES))
@@ -101,7 +98,7 @@ class api:
         if self.verbose:
             print(self.ac_key,self.min_lat_deg,self.max_lat_deg,self.min_lon_deg,self.max_lon_deg,self.zoom,self.verbose,LOCKING_LIMIT)
         print("Initializing jimutmap ... Please wait...")
-        
+
 
     @property
     def container_dir(self) -> str:
@@ -173,27 +170,26 @@ class api:
         Use a headless Chrome/Chromium instance to scrape the access key
         from the data-map-printing-background attribute of Apple Maps.
         """
-        chromedriver_autoinstaller.install(cwd= True)
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
         options.add_argument("--remote-debugging-port=9222")
-        driver = webdriver.Chrome(options=options)
-        driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
-        keyContents = None
-        loopStartTime = dt.datetime.now()
-        while (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
-            time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
-            baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
-            mapData = baseMap.get_attribute("data-map-printing-background")
-            mapData = str(mapData)
-            match = re.search(r'&accessKey=([^\s&]+)', mapData)
-            if match is not None:
-                keyContents = match.group(1)
-                break
-        if keyContents is None:
+        key_contents = None
+        with WebDriverContextManager(options) as driver:
+            driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
+            loopStartTime = dt.datetime.now()
+            while (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
+                time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
+                baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
+                mapData = baseMap.get_attribute("data-map-printing-background")
+                mapData = str(mapData)
+                match = re.search(r'&accessKey=([^\s&]+)', mapData)
+                if match is not None:
+                    key_contents = match.group(1)
+                    break
+        if key_contents is None:
             raise TimeoutError(f"Unable to automatically fetch API key in {timeout}s")
-        self._acKey = keyContents
-        return keyContents
+        self._acKey = key_contents
+        return key_contents
 
 
     def ret_xy_tiles(self, lat_deg:float, lon_deg:float) -> Tuple[int, int]:
@@ -389,4 +385,6 @@ class api:
                 # clear _several_ threads and keep up performance
                 tp.join()
 
-        
+
+
+
