@@ -10,26 +10,21 @@
 import os
 from jimutmap import SanityChecker
 import config
+from geojson import parse_json_file
 
-min_lon = config.MIN_LON_DEG
-step = config.STEP
-while min_lon < config.MAX_LON_DEG:
-    min_lat = config.MIN_LAT_DEG
-    while min_lat < config.MAX_LAT_DEG:
-        container_dir = f'{config.CONTAINER_DIR}_{min_lat}_{min_lon}'
-        sanity_checker = SanityChecker(min_lat_deg=min_lat,
-                                       max_lat_deg=min_lat+config.STEP,
-                                       min_lon_deg=min_lon,
-                                       max_lon_deg=min_lon+config.STEP,
-                                       zoom=config.ZOOM,
-                                       verbose=config.VERBOSE,
-                                       threads_=config.THREADS_,
-                                       container_dir=container_dir,
-                                       v_number=config.V_NUMBER
-                                       )
-        sanity_checker.sanity_check()
-        # create an empty file to mark the dir as done
-        with open(os.path.join(container_dir, 'done.txt')):
-            pass
-        min_lat = min_lat + config.STEP
-    min_lon = min_lon + config.STEP
+file_path = 'geojson/SCT_rectangle.geojson'
+geo_rectangle_list = parse_json_file(file_path)
+filename = os.path.splitext(os.path.basename(file_path))[0]
+
+for geo_rectangle in geo_rectangle_list:
+    sanity_checker = SanityChecker(min_lat_deg=geo_rectangle.min_lat_deg,
+                                   max_lat_deg=geo_rectangle.max_lat_deg,
+                                   min_lon_deg=geo_rectangle.min_lon_deg,
+                                   max_lon_deg=geo_rectangle.max_lon_deg,
+                                   zoom=config.ZOOM,
+                                   verbose=config.VERBOSE,
+                                   threads_=config.THREADS_,
+                                   container_dir=filename,
+                                   v_number=config.V_NUMBER
+                                           )
+    sanity_checker.sanity_check()

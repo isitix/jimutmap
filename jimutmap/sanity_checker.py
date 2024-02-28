@@ -77,12 +77,12 @@ class SanityChecker:
         # even if one file is missing, we return 0
 
         # get all the number of 0 entries for satellite imagery
-        get_sat_0s = self.cur.execute(''' SELECT * FROM sanity WHERE satellite_tile = 0 ''')
+        self.cur.execute(''' SELECT * FROM sanity WHERE satellite_tile = 0 ''')
         get_sat_0s_val = self.cur.fetchall() #converts the cursor object to number
         total_number_of_sat0s = len(get_sat_0s_val)
         print("Total number of satellite images needed to be downloaded = ", total_number_of_sat0s)
         if get_masks == True:
-            get_road_0s = self.cur.execute(''' SELECT * FROM sanity WHERE road_tile = 0 ''')
+            self.cur.execute(''' SELECT * FROM sanity WHERE road_tile = 0 ''')
             get_road_0s_val = self.cur.fetchall() #converts the cursor object to number
             total_number_of_road0s = len(get_road_0s_val)
         else:
@@ -123,7 +123,7 @@ class SanityChecker:
         for item in get_road_0s_val:
             get_road_ids.append(item[0])
         return get_road_ids
-    def sanity_check(self):
+    def sanity_check(self, max_retry:int=1):
     # This function contains the main loop for checking the sanity of download
         # till all the files are downloaded
 
@@ -138,8 +138,9 @@ class SanityChecker:
         batch = 1
         self.create_sanity_db(latLonResolution=0.0005)
         self.generate_summary()
-
-        while(self.shall_stop(get_masks = self.sanity_obj.get_masks) == 0):
+        retry = 0
+        while(self.shall_stop(get_masks = self.sanity_obj.get_masks) == 0 and retry < max_retry):
+            retry = retry + 1
 
             sat_img_ids = self.get_sat_img_id()
 

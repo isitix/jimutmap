@@ -3,6 +3,8 @@
 *.jpg
 *.jpeg
 .idea/
+plans/
+satellite_images/
 *.png
 myOutputFolder_zoom19
 *.sqlite

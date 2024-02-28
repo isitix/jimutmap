@@ -63,16 +63,50 @@ LOCK_VAR = 0
 UNLOCK_VAR = 0
 LOCKING_LIMIT = 50 # MAX NO OF THREADS
 
+class AccessKey:
+    access_key_id = 0
+    access_key = ''
+    def __init__(self, access_key=None):
+        if access_key is None:
+            self.renew_access_key()
+        else:
+            AccessKey.access_key = access_key
+    def get_access_key_id(self):
+         return self.access_key_id
+    def renew_access_key(self, my_access_key_id:int=0, timeout:float= 60) -> int:
+        if my_access_key_id == AccessKey.access_key_id:
+            options = webdriver.ChromeOptions()
+            options.add_argument('headless')
+            options.add_argument("--remote-debugging-port=9222")
+            key_contents = None
+            with WebDriverContextManager(options) as driver:
+                driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
+                loopStartTime = dt.datetime.now()
+                while (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
+                    time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
+                    baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
+                    mapData = baseMap.get_attribute("data-map-printing-background")
+                    mapData = str(mapData)
+                    match = re.search(r'&accessKey=([^\s&]+)', mapData)
+                    if match is not None:
+                        key_contents = match.group(1)
+                        break
+            if key_contents is None:
+                raise TimeoutError(f"Unable to automatically renew API key in {timeout}s")
+            else:
+                AccessKey.access_key = key_contents
+                AccessKey.access_key_id = AccessKey.access_key_id + 1
+        return AccessKey.access_key_id
+
 
 class api:
     """
     Pull tiles from Apple Maps
     """
-    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, ac_key:str= '', verbose:bool= False, threads_:int= 4, container_dir:str= "", get_mask:bool= False, v_number:int=0):
+    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, verbose:bool= False, threads_:int= 4, container_dir:str= "", get_mask:bool= False, v_number:int=0):
         """
         Zoom level. Between  1 and 20.
 
-        ac_key:str (default= None)
         Access key to Apple Maps. If not provided, will use a headless Chrome instance to fetch a session key.
         container_dir:str (default= "")
             When downloading images, place them in this directory.
@@ -81,7 +115,7 @@ class api:
         global LOCKING_LIMIT
         # verbose is the first value to set because used elsewhere in the code
         self.verbose = bool(verbose)
-        self.ac_key = ac_key
+        self.access_key = AccessKey()
         self.set_bounds(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg)
         self.zoom = zoom
         self.get_masks = get_mask
@@ -96,7 +130,7 @@ class api:
         LOCKING_LIMIT = threads_
 
         if self.verbose:
-            print(self.ac_key,self.min_lat_deg,self.max_lat_deg,self.min_lon_deg,self.max_lon_deg,self.zoom,self.verbose,LOCKING_LIMIT)
+            print(self.access_key.access_key,self.min_lat_deg,self.max_lat_deg,self.min_lon_deg,self.max_lon_deg,self.zoom,self.verbose,LOCKING_LIMIT)
         print("Initializing jimutmap ... Please wait...")
 
 
@@ -151,47 +185,6 @@ class api:
         """
         return self.min_lon_deg, self.max_lon_deg
 
-    @property
-    def ac_key(self) -> str:
-        """
-        Get or set the internal accessKey for the tile requests
-        """
-        return self._acKey
-
-    @ac_key.setter
-    def ac_key(self, newACKey:str):
-        if newACKey == '' or newACKey is None:
-            self._get_api_key()
-        else:
-            self._acKey = newACKey
-
-    def _get_api_key(self, timeout:float= 60) -> str:
-        """
-        Use a headless Chrome/Chromium instance to scrape the access key
-        from the data-map-printing-background attribute of Apple Maps.
-        """
-        options = webdriver.ChromeOptions()
-        options.add_argument('headless')
-        options.add_argument("--remote-debugging-port=9222")
-        key_contents = None
-        with WebDriverContextManager(options) as driver:
-            driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
-            loopStartTime = dt.datetime.now()
-            while (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
-                time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
-                baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
-                mapData = baseMap.get_attribute("data-map-printing-background")
-                mapData = str(mapData)
-                match = re.search(r'&accessKey=([^\s&]+)', mapData)
-                if match is not None:
-                    key_contents = match.group(1)
-                    break
-        if key_contents is None:
-            raise TimeoutError(f"Unable to automatically fetch API key in {timeout}s")
-        self._acKey = key_contents
-        return key_contents
-
-
     def ret_xy_tiles(self, lat_deg:float, lon_deg:float) -> Tuple[int, int]:
         """
         Parameters
@@ -242,7 +235,7 @@ class api:
         xTile, yTile = self.ret_xy_tiles(lat_deg, lon_deg)
         return [xTile, yTile]
 
-    def get_img(self, tile:List[str], prefix:str= "", retry:int= 1):
+    def get_img(self, tile:List[str], prefix:str= "", retry:int= 3):
         """
         Get images from the URL provided and save them
 
@@ -256,6 +249,7 @@ class api:
             Internal. Tracks retry status.
         """
         global headers, LOCK_VAR, UNLOCK_VAR, LOCKING_LIMIT
+        my_api_key_id = 0
         if self.verbose:
             print(tile)
         UNLOCK_VAR = UNLOCK_VAR + 1
@@ -282,7 +276,7 @@ class api:
                 if self.is_access_denied(content):
                     if self.verbose:
                         print('Access denied, refreshing api key')
-                    self._get_api_key()
+                    my_api_key_id = self.access_key.renew_access_key(my_api_key_id)
                     continue
                 with open(file_name, 'wb') as fh:
                     fh.write(r.content)
@@ -324,14 +318,14 @@ class api:
     def get_req_road_url(self, cdnLevel, env_key, xTile, yTile):
         # sample road tile 1: https://cdn3.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=390842&y=228268&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
         # sample road tile 2: https://cdn4.apple-mapkit.com/ti/tile?country=IN&region=IN&style=46&size=1&x=296223&y=176608&z=19&scale=1&lang=en&v=2204054&poi=1&accessKey=1649243787_2102081627305478489_%2F_hIz9LjsZkMj6NE7y%2BimXS9vFQbxfjLBClZR7yqyFtsE%3D&emphasis=standard&tint=light
-        req_url = f"https://cdn{cdnLevel}.apple-mapkit.com/ti/tile?country=US&region=US&style=46&size=1&x={xTile}&y={yTile}&z={self.zoom}&scale=1&lang=en&v={env_key}4&poi=1&accessKey={self.ac_key}&emphasis=standard&tint=light"
+        req_url = f"https://cdn{cdnLevel}.apple-mapkit.com/ti/tile?country=US&region=US&style=46&size=1&x={xTile}&y={yTile}&z={self.zoom}&scale=1&lang=en&v={env_key}4&poi=1&accessKey={self.access_key.access_key}&emphasis=standard&tint=light"
         if self.verbose:
             print(req_url)
         return req_url
 
     def get_req_img_url(self, xTile, yTile):
         # sample sat tile: https://sat-cdn2.apple-mapkit.com/tile?style=7&size=1&scale=1&z=19&x=390843&y=228270&v=9262&accesskey=1649243787_2102081627305478489_%2f_hiz9ljszkmj6ne7y%2bimxs9vfqbxfjlbclzr7yqyftse%3d&emphasis=standard&tint=light
-        req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={self.v_number}&accessKey={self.ac_key}"
+        req_url = f"https://sat-cdn1.apple-mapkit.com/tile?style=7&size=1&scale=1&z={self.zoom}&x={xTile}&y={yTile}&v={self.v_number}&accessKey={self.access_key.access_key}"
         if self.verbose:
             print(req_url)
         return req_url
@@ -384,7 +378,3 @@ class api:
                 # process has cleared. As a practical matter, this will
                 # clear _several_ threads and keep up performance
                 tp.join()
-
-
-
-
