@@ -11,13 +11,20 @@ import sqlite3
 import numpy as np
 from tqdm import tqdm
 import multiprocessing
+
+import config
 from jimutmap import api
 from .file_size import get_folder_size
 from multiprocessing.pool import ThreadPool
+import os
 
 
 class SanityChecker:
+    # TODO : supprimer les fichiers SQLlite lorsque l on cree un nouvel objet
     def __init__(self, min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg, zoom, verbose, threads_, container_dir, v_number):
+        for sqlite_file in config.SQL_DBS:
+            if os.path.exists(sqlite_file):
+                os.remove(sqlite_file)
         self.con = sqlite3.connect('temp_sanity.sqlite')
         self.cur = self.con.cursor()
         self.threads_ = threads_
@@ -87,7 +94,7 @@ class SanityChecker:
             total_number_of_road0s = len(get_road_0s_val)
         else:
             total_number_of_road0s = 0
-        print("Total number of satellite images needed to be downloaded = ", total_number_of_road0s)
+        print("Total number of roads needed to be downloaded = ", total_number_of_road0s)
 
         if total_number_of_sat0s == 0 and total_number_of_road0s == 0:
             return 1
@@ -97,7 +104,7 @@ class SanityChecker:
         # if there is a minute increase in byte size of the folder, we need to wait
         # till the multiprocessing thread finishes its execution
         get_folder_size_ini = get_folder_size(self.sanity_obj.container_dir)
-        time.sleep(15)
+        time.sleep(config.TIME_SLEEP)
         get_folder_size_final = get_folder_size(self.sanity_obj.container_dir)
         diff = get_folder_size_final - get_folder_size_ini
         speed_download = diff/(15.0*1024*1024) # get the speed in MB
@@ -145,7 +152,7 @@ class SanityChecker:
             sat_img_ids = self.get_sat_img_id()
 
             while(self.check_downloading()==1):
-                print("Waiting for 15 seconds... Busy downloading")
+                print(f"Waiting for {config.TIME_SLEEP} seconds... Busy downloading")
 
             print("Batch ============================================================================= ",batch)
             print("===================================================================================")
