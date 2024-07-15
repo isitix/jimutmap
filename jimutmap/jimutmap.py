@@ -17,15 +17,9 @@ import requests
 import numpy as np
 import datetime as dt
 
-from selenium.webdriver.support.wait import WebDriverWait
-from tqdm import tqdm
-import multiprocessing
 from typing import Tuple
-from selenium import webdriver
-import chromedriver_autoinstaller
-from multiprocessing.pool import ThreadPool
+from tqdm import tqdm
 from os.path import join, exists, normpath, relpath
-from selenium.webdriver.common.by import By
 from typing import List
 
 
@@ -42,20 +36,6 @@ headers = {
 }
 
 
-class WebDriverContextManager:
-    def __init__(self, options):
-        chromedriver_autoinstaller.install(cwd=True)
-        self.options = options
-
-    def __enter__(self):
-        self.driver = webdriver.Chrome(options=self.options)
-        return self.driver
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.driver.quit()
-
-
-
 
 # To synchronize
 
@@ -63,47 +43,13 @@ LOCK_VAR = 0
 UNLOCK_VAR = 0
 LOCKING_LIMIT = 50 # MAX NO OF THREADS
 
-class AccessKey:
-    access_key_id = 0
-    access_key = ''
-    def __init__(self, access_key=None):
-        if access_key is None:
-            self.renew_access_key()
-        else:
-            AccessKey.access_key = access_key
-    def get_access_key_id(self):
-         return self.access_key_id
-    def renew_access_key(self, my_access_key_id:int=0, timeout:float= 60) -> int:
-        if my_access_key_id == AccessKey.access_key_id:
-            options = webdriver.ChromeOptions()
-            options.add_argument('headless')
-            options.add_argument("--remote-debugging-port=9222")
-            key_contents = None
-            with WebDriverContextManager(options) as driver:
-                driver.get("https://satellites.pro/USA_map#37.405074,-94.284668,5")
-                loopStartTime = dt.datetime.now()
-                while (dt.datetime.now() - loopStartTime).total_seconds() < timeout:
-                    time.sleep(2.5) # if no time sleep then next instruction, find_element raises an error, no element found
-                    baseMap = driver.find_element(By.CSS_SELECTOR, "#map-canvas .leaflet-mapkit-mutant")
-                    mapData = baseMap.get_attribute("data-map-printing-background")
-                    mapData = str(mapData)
-                    match = re.search(r'&accessKey=([^\s&]+)', mapData)
-                    if match is not None:
-                        key_contents = match.group(1)
-                        break
-            if key_contents is None:
-                raise TimeoutError(f"Unable to automatically renew API key in {timeout}s")
-            else:
-                AccessKey.access_key = key_contents
-                AccessKey.access_key_id = AccessKey.access_key_id + 1
-        return AccessKey.access_key_id
 
 
 class api:
     """
     Pull tiles from Apple Maps
     """
-    def __init__(self, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, verbose:bool= False, threads_:int= 4, container_dir:str= "", get_mask:bool= False, v_number:int=0):
+    def __init__(self, access_key:str, min_lat_deg:float, max_lat_deg:float, min_lon_deg:float, max_lon_deg:float, zoom= 19, verbose:bool= False, threads_:int= 4, container_dir:str= "", get_mask:bool= False, v_number:int=0):
         """
         Zoom level. Between  1 and 20.
 
@@ -115,14 +61,14 @@ class api:
         global LOCKING_LIMIT
         # verbose is the first value to set because used elsewhere in the code
         self.verbose = bool(verbose)
-        self.access_key = AccessKey()
+        self.access_key = access_key
         self.set_bounds(min_lat_deg, max_lat_deg, min_lon_deg, max_lon_deg)
         self.zoom = zoom
         self.get_masks = get_mask
         self.container_dir = container_dir
         self.v_number = v_number
 
-        MAX_CORES = multiprocessing.cpu_count()
+        MAX_CORES = 3
         if threads_> MAX_CORES:
             print("Sorry, {} -- threads unavailable, using maximum CPU threads : {}".format(threads_,MAX_CORES))
             threads_ = MAX_CORES
