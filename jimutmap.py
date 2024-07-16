@@ -313,3 +313,8 @@ class api:
                 # process has cleared. As a practical matter, this will
                 # clear _several_ threads and keep up performance
                 tp.join()
+
+def test_KW(value):
+    API = api(value,10,80,10,80)
+    print ('Test KW')
+    print (API.access_key)
