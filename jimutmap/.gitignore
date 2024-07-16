@@ -2,3 +2,8 @@
 [0-9]*
 *.sqlite
 myOutputFolder
+log.html
+output.xml
+playwright-log.txt
+report.html
+robotframework/browser/
