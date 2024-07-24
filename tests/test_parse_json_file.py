@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 from geojson import parse_json_file
-from geojson import PlanetArea
+from geojson import WorldArea
 import json
 
 
@@ -27,7 +27,7 @@ class TestGeoJson(unittest.TestCase):
                 }
             ]
         }
-        cls.test_geo_rectangle = PlanetArea(1, 50.5, 10, 40.3)
+        cls.test_geo_rectangle = WorldArea(1, 50.5, 10, 40.3)
 
     def test_parse_sample_json_file(self):
         temp_filename = "/tmp/sample.json"

@@ -2,7 +2,7 @@ import os
 import sys  # Added this line to get command line arguments
 from jimutmap import SanityChecker
 import config
-from geojson import PlanetArea
+from geojson import WorldArea
 from geojson import parse_json_file
 
 def main(geojson_file_path):
