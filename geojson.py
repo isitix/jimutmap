@@ -11,7 +11,7 @@ class MapArea:
         self.max_lon = max_lon
 
     def name(self):
-        return f'{self.min_lat}-{self.min_lon}_{self.max_lat}-self.{self.max_lon}'
+        return f'{self.min_lat:.4f}-{self.min_lon:.4f}_{self.max_lat:.4f}-{self.max_lon:.4f}'
     def setCoordinates(self, coordinates):
         self.min_lon = min(coordinates, key=lambda x: x[0])[0]
         self.max_lon = max(coordinates, key=lambda x: x[0])[0]
