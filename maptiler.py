@@ -1,7 +1,8 @@
 import math
 import os
 import requests
-from urllib3.exceptions import InsecureRequestWarning
+import aiohttp
+import asyncio
 
 import geojson
 import sys
@@ -24,27 +25,46 @@ def xy_to_latlon(x_tile:int, y_tile:int, zoom: int) -> Tuple[float, float]:
     lat_deg = lat_rad * 180.0 / math.pi
     return lat_deg, lon_deg
 
-def get_tiles(area:geojson.MapArea, zoom:int, project_directory:str, api_key:str):
+
+async def download_file(session, url, filepath):
+    async with session.get(url, verify_ssl=False) as response:
+        if response.status == 429:
+            raise Exception('Response status 429, rate limit exceeded')
+        if response.status == 200:
+            with open(filepath, 'wb') as file:
+                file.write(await response.read())
+            print(f"Downloaded {filepath}")
+
+
+async def get_tiles(area, zoom, project_directory, api_key, limit=10):
+    sem = asyncio.Semaphore(limit)
+
+    async def bounded_download_file(session, url, filepath):
+        async with sem:
+            print(f"Downloading {url}")
+            return await download_file(session, url, filepath)
+
     x1, y1 = latlon_to_xy(area.min_lat, area.min_lon, zoom)
     x2, y2 = latlon_to_xy(area.max_lat, area.max_lon, zoom)
-    min_x = min(x1,x2)
-    max_x = max(x1,x2)
-    min_y = min(y1,y2)
-    max_y = max(y1,y2)
+    min_x = min(x1, x2)
+    max_x = max(x1, x2)
+    min_y = min(y1, y2)
+    max_y = max(y1, y2)
     dir = os.path.join(project_directory, f"{zoom}_{area.name()}")
     if not os.path.exists(dir):
         os.makedirs(dir)
-    for x in range(min_x, max_x):
-        for y in range(min_y, max_y):
-            filename = f"{zoom}_{x}-{y}.jpg"
-            filepath = os.path.join(dir, filename)
-            if os.path.isfile(filepath) and os.path.getsize(filepath) > 0:
-                break
-            url = f"https://api.maptiler.com/tiles/satellite-v2/{zoom}/{x}/{y}.jpg?key={api_key}"
-            response = requests.get(url, verify=False)
-            if response.status_code == 200:
-                with open(filepath, 'wb') as file:
-                    file.write(response.content)
+    tasks = []
+    async with aiohttp.ClientSession() as session:
+        for x in range(min_x, max_x + 1):
+            for y in range(min_y, max_y + 1):
+                filename = f"{zoom}_{x}-{y}.jpg"
+                filepath = os.path.join(dir, filename)
+                if os.path.isfile(filepath) and os.path.getsize(filepath) > 0:
+                    continue
+                url = f"https://api.maptiler.com/tiles/satellite-v2/{zoom}/{x}/{y}.jpg?key={api_key}"
+                print(f"Adding tile x={x}, y={y} to the queue")
+                tasks.append(bounded_download_file(session, url, filepath))
+        await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
     geojson_file = sys.argv[1]
@@ -60,4 +80,4 @@ if __name__ == "__main__":
     if not os.path.exists(project_directory):
         os.makedirs(project_directory)
     for area in area_list:
-        get_tiles(area, zoom, project_directory, api_key)
+        asyncio.run(get_tiles(area, zoom, project_directory, api_key))
