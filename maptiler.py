@@ -36,7 +36,7 @@ async def download_file(session, url, filepath):
             print(f"Downloaded {filepath}")
 
 
-async def get_tiles(area, zoom, project_directory, api_key, limit=10):
+async def get_tiles(area, zoom, project_directory, api_key, limit=20):
     sem = asyncio.Semaphore(limit)
 
     async def bounded_download_file(session, url, filepath):
